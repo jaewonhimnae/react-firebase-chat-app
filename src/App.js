@@ -13,14 +13,15 @@ import firebase from './firebase';
 
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  setUser
+  setUser,
+  clearUser
 } from './redux/actions/user_action';
 
 function App(props) {
   let history = useHistory();
   let dispatch = useDispatch();
   const isLoading = useSelector(state => state.user.isLoading);
-  
+
   useEffect(() => {
     firebase.auth().onAuthStateChanged(user => {
       console.log('user', user)
@@ -30,6 +31,7 @@ function App(props) {
         dispatch(setUser(user))
       } else {
         history.push("/login");
+        dispatch(clearUser())
       }
     })
   }, [])
