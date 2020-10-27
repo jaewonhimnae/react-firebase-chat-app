@@ -4,10 +4,10 @@ import { FaPlus } from 'react-icons/fa';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
+import Badge from 'react-bootstrap/Badge';
 import { connect } from 'react-redux';
 import firebase from '../../../firebase';
-import { setCurrentChatRoom } from '../../../redux/actions/chatRoom_action';
-
+import { setCurrentChatRoom, setPrivateChatRoom } from '../../../redux/actions/chatRoom_action';
 export class ChatRooms extends Component {
 
     state = {
@@ -15,9 +15,11 @@ export class ChatRooms extends Component {
         name: "",
         description: "",
         chatRoomsRef: firebase.database().ref("chatRooms"),
+        messagesRef: firebase.database().ref("messages"),
         chatRooms: [],
         firstLoad: true,
-        activeChatRoomId: ""
+        activeChatRoomId: "",
+        notifications: []
     }
 
     componentDidMount() {
@@ -47,8 +49,25 @@ export class ChatRooms extends Component {
             chatRoomsArray.push(DataSnapshot.val());
             this.setState({ chatRooms: chatRoomsArray },
                 () => this.setFirstChatRoom());
+            this.addNotificationListener(DataSnapshot.key);
         })
 
+    }
+
+    addNotificationListener = (chatRoomId) => {
+        this.state.messagesRef.child(chatRoomId).on("value", DataSnapshot => {
+            if (this.props.chatRoom) {
+                this.handleNotification(
+                    chatRoomId,
+                    this.props.chatRoom.id,
+                    this.state.notifications,
+                    DataSnapshot
+                )
+            }
+        })
+    }
+
+    handleNotification = () => {
 
     }
 
@@ -99,6 +118,7 @@ export class ChatRooms extends Component {
 
     changeChatRoom = (room) => {
         this.props.dispatch(setCurrentChatRoom(room));
+        this.props.dispatch(setPrivateChatRoom(false));
         this.setState({ activeChatRoomId: room.id })
     }
 
@@ -114,6 +134,9 @@ export class ChatRooms extends Component {
                 onClick={() => this.changeChatRoom(room)}
             >
                 # {room.name}
+                <Badge style={{ float: 'right', marginTop: '4px' }} variant="danger">
+                    1
+                </Badge>
             </li>
         ))
 
@@ -188,7 +211,8 @@ export class ChatRooms extends Component {
 
 const mapStateToProps = state => {
     return {
-        user: state.user.currentUser
+        user: state.user.currentUser,
+        chatRoom: state.chatRoom.currentChatRoom
     }
 }
 
