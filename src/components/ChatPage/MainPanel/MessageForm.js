@@ -123,8 +123,6 @@ function MessageForm() {
                 </Form.Group>
             </Form>
 
-            {console.log('percentage', percentage)}
-
             {
                 !(percentage === 0 || percentage === 100) &&
                 <ProgressBar variant="warning" label={`${percentage}%`} now={percentage} />
