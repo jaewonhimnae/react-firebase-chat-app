@@ -4,7 +4,7 @@ import Message from './Message';
 import MessageForm from './MessageForm';
 import { connect } from 'react-redux';
 import firebase from '../../../firebase';
-import {setUserPosts} from '../../../redux/actions/chatRoom_action';
+import { setUserPosts } from '../../../redux/actions/chatRoom_action';
 
 export class MainPanel extends Component {
 
@@ -14,7 +14,10 @@ export class MainPanel extends Component {
         messagesLoading: true,
         searchTerm: "",
         searchResults: [],
-        searchLoading: false
+        searchLoading: false,
+        typingRef: firebase.database().ref("typing"),
+        typingUsers: [],
+        listenerLists: []
     }
 
     componentDidMount() {
@@ -22,6 +25,68 @@ export class MainPanel extends Component {
 
         if (chatRoom) {
             this.addMessagesListeners(chatRoom.id)
+            this.addTypingListeners(chatRoom.id)
+        }
+    }
+
+    componentWillUnmount() {
+        this.state.messagesRef.off();
+        this.removeListeners(this.state.listenerLists);
+    }
+
+    removeListeners = (listeners) => {
+        listeners.forEach(listner => {
+            listner.ref.child(listner.id).off(listner.event)
+        })
+    }
+
+    addTypingListeners = (chatRoomId) => {
+        let typingUsers = [];
+        //typing이 새로 들어올 때
+        this.state.typingRef.child(chatRoomId).on("child_added",
+            DataSnapshot => {
+                if (DataSnapshot.key !== this.props.user.uid) {
+                    typingUsers = typingUsers.concat({
+                        id: DataSnapshot.key,
+                        name: DataSnapshot.val()
+                    });
+                    this.setState({ typingUsers })
+                }
+            })
+
+        //listenersList state에 등록된 리스너를 넣어주기 
+        this.addToListenerLists(chatRoomId, this.state.typingRef, "child_added")
+
+        //typing을 지워줄 때
+        this.state.typingRef.child(chatRoomId).on("child_removed",
+            DataSnapshot => {
+                const index = typingUsers.findIndex(user => user.id === DataSnapshot.key);
+                if (index !== -1) {
+                    typingUsers = typingUsers.filter(user => user.id !== DataSnapshot.key);
+                    this.setState({ typingUsers })
+                }
+            })
+        //listenersList state에 등록된 리스너를 넣어주기 
+        this.addToListenerLists(chatRoomId, this.state.typingRef, "child_removed")
+
+    }
+
+    addToListenerLists = (id, ref, event) => {
+
+        //이미 등록된 리스너인지 확인 
+        const index = this.state.listenerLists.findIndex(listener => {
+            return (
+                listener.id === id &&
+                listener.ref === ref &&
+                listener.event === event
+            );
+        })
+
+        if (index === -1) {
+            const newListener = { id, ref, event }
+            this.setState({
+                listenerLists: this.state.listenerLists.concat(newListener)
+            })
         }
     }
 
@@ -53,7 +118,6 @@ export class MainPanel extends Component {
         let messagesArray = [];
         this.state.messagesRef.child(chatRoomId).on("child_added", DataSnapshot => {
             messagesArray.push(DataSnapshot.val());
-            console.log('messageAre', messagesArray)
             this.setState({
                 messages: messagesArray,
                 messagesLoading: false
@@ -87,8 +151,14 @@ export class MainPanel extends Component {
             />
         ))
 
+    renderTypingUsers = (typingUsers) =>
+        typingUsers.length > 0 &&
+        typingUsers.map(user => (
+            <span>{user.name}님이 채팅을 입력하고 있습니다...</span>
+        ))
+
     render() {
-        const { messages, searchTerm, searchResults } = this.state;
+        const { messages, searchTerm, searchResults, typingUsers } = this.state;
         return (
             <div style={{ padding: '2rem 2rem 0 2rem' }}>
 
@@ -109,7 +179,7 @@ export class MainPanel extends Component {
                         this.renderMessages(messages)
                     }
 
-                    {}
+                    {this.renderTypingUsers(typingUsers)}
                 </div>
 
                 <MessageForm />
